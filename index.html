@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aurelia Health — Daily Brief Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --oat:#FAF7F2;--tan:#F2EBE0;--espresso:#1C1208;--espresso2:#2E1F0D;
+    --gold:#BA7517;--gold-light:#F0DEB0;--gold-pale:#FAF0DC;
+    --blush:#FCEBEB;--blush2:#F5D0D0;--sage:#E8EDE2;--sage2:#D0D9C8;--moss:#6B7A5E;
+    --text:#1C1208;--muted:#7A6952;--border:#DDD4C4;--green:#4A7C59;--green-pale:#EAF3DE;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--oat);font-family:'DM Sans',sans-serif;color:var(--text);font-size:14px;line-height:1.6;}
+  .shell{display:grid;grid-template-columns:280px 1fr;min-height:100vh;}
+  .sidebar{background:var(--espresso);padding:32px 24px;position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column;}
+  .sidebar-logo{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:var(--gold-light);letter-spacing:.04em;margin-bottom:4px;}
+  .sidebar-tagline{font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:36px;}
+  .nav-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;padding-left:2px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;color:#C4B49A;font-size:12.5px;transition:all .15s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left;}
+  .nav-item:hover{background:rgba(255,255,255,.07);color:var(--gold-light);}
+  .nav-item.active{background:rgba(186,117,23,.18);color:var(--gold-light);}
+  .nav-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .15s;}
+  .nav-item.active .nav-dot{background:var(--gold);}
+  .sidebar-actions{margin-top:auto;padding-top:24px;border-top:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column;gap:8px;}
+  .btn-generate{width:100%;background:var(--gold);color:var(--espresso);border:none;border-radius:8px;padding:13px 16px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;letter-spacing:.02em;transition:all .2s;}
+  .btn-generate:hover{background:#D08920;transform:translateY(-1px);}
+  .btn-publish{width:100%;background:var(--green);color:white;border:none;border-radius:8px;padding:13px 16px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;letter-spacing:.02em;transition:all .2s;display:none;}
+  .btn-publish:hover{background:#3A6448;transform:translateY(-1px);}
+  .btn-publish.visible{display:block;}
+  .btn-clear{width:100%;background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 16px;font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .15s;}
+  .btn-clear:hover{border-color:rgba(255,255,255,.2);color:#C4B49A;}
+
+  /* publish toast */
+  .publish-toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--espresso);color:var(--gold-light);padding:14px 24px;border-radius:12px;font-size:13px;opacity:0;transition:all .3s;z-index:1000;pointer-events:none;white-space:nowrap;text-align:center;}
+  .publish-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .publish-toast a{color:var(--gold);text-decoration:underline;pointer-events:all;}
+  .publish-toast.error{background:#8B2020;color:white;}
+
+  .main{padding:40px 48px;max-width:900px;}
+  .page-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:40px;padding-bottom:24px;border-bottom:1px solid var(--border);}
+  .page-title{font-family:'Cormorant Garamond',serif;font-size:34px;font-weight:300;color:var(--espresso);letter-spacing:-.01em;}
+  .page-title span{color:var(--gold);font-style:italic;}
+  .date-badge{font-size:12px;color:var(--muted);background:var(--tan);padding:6px 14px;border-radius:20px;border:1px solid var(--border);}
+  .section{display:none;animation:fadeIn .2s ease;}
+  .section.active{display:block;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .section-header{display:flex;align-items:center;gap:14px;margin-bottom:28px;}
+  .section-num{background:var(--gold);color:var(--espresso);font-family:'Cormorant Garamond',serif;font-size:13px;font-weight:500;padding:4px 10px;border-radius:4px;letter-spacing:.05em;}
+  .section-title{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:400;color:var(--espresso);}
+  .card{background:white;border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px;}
+  .card-label{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;font-weight:500;}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+  .grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:6px;letter-spacing:.02em;}
+  .field input,.field textarea{width:100%;background:var(--oat);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-family:'DM Sans',sans-serif;font-size:13.5px;color:var(--text);transition:border-color .15s;outline:none;}
+  .field input:focus,.field textarea:focus{border-color:var(--gold);background:white;}
+  .field textarea{resize:vertical;min-height:80px;}
+  .paste-zone{background:var(--gold-pale);border:2px dashed var(--gold-light);border-radius:12px;padding:20px 24px;margin-bottom:20px;}
+  .paste-zone label{font-size:12px;font-weight:500;color:var(--gold);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:8px;}
+  .paste-zone textarea{width:100%;background:white;border:1px solid var(--gold-light);border-radius:8px;padding:12px 14px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);resize:vertical;min-height:90px;outline:none;}
+
+  /* CSV Upload */
+  .csv-upload-zone{border-radius:14px;padding:28px 28px 24px;margin-bottom:20px;}
+  .csv-upload-zone.notion{background:linear-gradient(135deg,#F7F4EF 0%,#EFE8DC 100%);border:2px dashed #C8B89A;}
+  .csv-upload-zone.notion.loaded{background:var(--green-pale);border:2px solid var(--green);}
+  .csv-upload-head{display:flex;align-items:center;gap:12px;margin-bottom:6px;}
+  .csv-upload-badge{font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-weight:500;padding:3px 9px;border-radius:10px;background:#1a1a1a;color:#e0c882;}
+  .csv-upload-title{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:400;color:var(--espresso);}
+  .csv-upload-desc{font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.5;}
+  .csv-file-input{display:none;}
+  .csv-drop-target{background:white;border:1.5px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:all .2s;}
+  .csv-drop-target:hover,.csv-drop-target.drag-over{border-color:var(--gold);background:var(--gold-pale);}
+  .csv-drop-icon{font-size:26px;margin-bottom:8px;display:block;}
+  .csv-drop-label{font-size:13px;color:var(--muted);}
+  .csv-drop-label strong{color:var(--gold);cursor:pointer;}
+  .csv-drop-small{font-size:11px;color:var(--muted);margin-top:4px;}
+  .parse-result{margin-top:16px;border-radius:10px;overflow:hidden;border:1px solid var(--sage2);display:none;}
+  .parse-result.visible{display:block;}
+  .parse-result-head{background:var(--green);color:white;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;}
+  .parse-result-head span{font-size:12px;font-weight:500;}
+  .parse-result-body{background:white;padding:14px 16px;}
+  .parse-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+  .parse-chip{background:var(--sage);color:var(--moss);font-size:11px;padding:4px 10px;border-radius:12px;font-weight:500;}
+  .parse-chip.risk{background:var(--blush);color:#8B2020;}
+  .parse-chip.warn{background:#FFF3DC;color:#6B4400;}
+  .parsed-preview-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  .parsed-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .parsed-table th{text-align:left;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--border);font-weight:500;background:var(--tan);}
+  .parsed-table td{padding:7px 8px;border-bottom:1px solid var(--tan);color:var(--text);}
+  .parsed-table tr.risk-row td{background:var(--blush);}
+  .parsed-table tr.warn-row td{background:#FFF8EC;}
+  .parse-override-note{font-size:11px;color:var(--muted);margin-top:10px;font-style:italic;}
+
+  .add-row-btn{background:none;border:1px dashed var(--border);border-radius:6px;padding:7px 14px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;width:100%;transition:all .15s;}
+  .add-row-btn:hover{border-color:var(--gold);color:var(--gold);}
+  .progress-bar{height:3px;background:var(--tan);border-radius:2px;margin-bottom:28px;overflow:hidden;}
+  .progress-fill{height:100%;background:var(--gold);border-radius:2px;transition:width .4s ease;}
+  .section-nav{display:flex;justify-content:space-between;align-items:center;margin-top:32px;padding-top:20px;border-top:1px solid var(--border);}
+  .btn-nav{background:none;border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);cursor:pointer;transition:all .15s;}
+  .btn-nav:hover{border-color:var(--espresso);color:var(--espresso);}
+  .btn-nav-next{background:var(--espresso);border:1px solid var(--espresso);border-radius:8px;padding:10px 22px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--gold-light);cursor:pointer;transition:all .15s;}
+  .btn-nav-next:hover{background:var(--espresso2);}
+
+  @media(max-width:768px){
+    .shell{grid-template-columns:1fr;}
+    .sidebar{position:relative;height:auto;}
+    .main{padding:24px 20px;}
+    .grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div class="shell" id="tool-shell">
+  <nav class="sidebar">
+    <div class="sidebar-logo">Aurelia Health</div>
+    <div class="sidebar-tagline">Daily Brief Generator</div>
+    <div class="nav-label">Sections</div>
+    <button class="nav-item active" onclick="goTo(0)" id="nav0"><span class="nav-dot"></span>Enrollment & Leads</button>
+    <button class="nav-item" onclick="goTo(1)" id="nav1"><span class="nav-dot"></span>Membership Counts</button>
+    <button class="nav-item" onclick="goTo(2)" id="nav2"><span class="nav-dot"></span>Off-Boarding Risk</button>
+    <button class="nav-item" onclick="goTo(3)" id="nav3"><span class="nav-dot"></span>Meta Ads</button>
+    <button class="nav-item" onclick="goTo(4)" id="nav4"><span class="nav-dot"></span>Workshop Sign-Ups</button>
+    <button class="nav-item" onclick="goTo(5)" id="nav5"><span class="nav-dot"></span>Email Performance</button>
+    <button class="nav-item" onclick="goTo(6)" id="nav6"><span class="nav-dot"></span>MiniChat</button>
+    <button class="nav-item" onclick="goTo(7)" id="nav7"><span class="nav-dot"></span>Priority Inbox</button>
+    <button class="nav-item" onclick="goTo(8)" id="nav8"><span class="nav-dot"></span>Podcast</button>
+    <button class="nav-item" onclick="goTo(9)" id="nav9"><span class="nav-dot"></span>Coupon Codes</button>
+    <button class="nav-item" onclick="goTo(10)" id="nav10"><span class="nav-dot"></span>Notes & Actions</button>
+    <div class="sidebar-actions">
+      <button class="btn-generate" onclick="previewBrief()">✦ Preview Brief</button>
+      <button class="btn-publish visible" id="btn-publish" onclick="publishBrief()">⬆ Publish & Get Link</button>
+      <button class="btn-clear" onclick="if(confirm('Clear all data?'))clearAll()">Clear All</button>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Daily <span>Brief</span></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;">Fill each section, then publish your brief.</div>
+      </div>
+      <div class="date-badge" id="today-badge"></div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:9%"></div></div>
+
+    <!-- S0 Enrollment -->
+    <div class="section active" id="sec0">
+      <div class="section-header"><span class="section-num">01</span><span class="section-title">Enrollment Stats & Lead Source</span></div>
+      <div class="card">
+        <div class="card-label">Enrollment Numbers</div>
+        <div class="grid-4">
+          <div class="field"><label>New Today</label><input type="number" id="enroll-today" placeholder="0"></div>
+          <div class="field"><label>MTD</label><input type="number" id="enroll-mtd" placeholder="0"></div>
+          <div class="field"><label>YTD</label><input type="number" id="enroll-ytd" placeholder="0"></div>
+          <div class="field"><label>Monthly Goal</label><input type="number" id="enroll-goal" placeholder="0"></div>
+        </div>
+        <div class="field" style="margin-top:8px;"><label>Prepared by</label><input type="text" id="prepared-by" placeholder="e.g. Emily"></div>
+      </div>
+      <div class="card">
+        <div class="card-label">Lead Source Breakdown</div>
+        <div id="lead-source-rows"></div>
+        <button class="add-row-btn" onclick="addLeadRow()">+ Add Lead Source</button>
+      </div>
+      <div class="paste-zone">
+        <label>✦ Paste raw notes</label>
+        <textarea id="paste-enrollment" placeholder="e.g. 5 new enrollments today, 22 MTD, Meta brought in 18 leads..."></textarea>
+      </div>
+      <div class="section-nav"><span></span><button class="btn-nav-next" onclick="goTo(1)">Membership →</button></div>
+    </div>
+
+    <!-- S1 Membership -->
+    <div class="section" id="sec1">
+      <div class="section-header"><span class="section-num">02</span><span class="section-title">Membership & Continuation Counts</span></div>
+      <div class="csv-upload-zone notion" id="notion-upload-zone">
+        <div class="csv-upload-head">
+          <span class="csv-upload-badge">Notion</span>
+          <span class="csv-upload-title">Auto-fill from Patient Database</span>
+        </div>
+        <p class="csv-upload-desc">Export your Patients database from Notion as a CSV and drop it here. The tool will automatically populate <strong>membership counts</strong> and <strong>off-boarding risk flags</strong> — including all ⚠️ alert patients, contact-gap flags, and approaching-continuation members.</p>
+        <div class="csv-drop-target" id="csv-drop-target" onclick="document.getElementById('notion-csv-input').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+          <input type="file" id="notion-csv-input" class="csv-file-input" accept=".csv" onchange="handleFileSelect(event)">
+          <span class="csv-drop-icon">📋</span>
+          <div class="csv-drop-label"><strong>Click to upload</strong> or drag & drop your Notion CSV</div>
+          <div class="csv-drop-small">Notion → Patients database → ··· → Export → CSV</div>
+        </div>
+        <div class="parse-result" id="parse-result">
+          <div class="parse-result-head">
+            <span>✓ Notion CSV parsed successfully</span>
+            <button onclick="clearNotionData()" style="background:none;border:none;color:white;cursor:pointer;font-size:12px;opacity:.7;">✕ Clear</button>
+          </div>
+          <div class="parse-result-body">
+            <div class="parse-chips" id="parse-chips"></div>
+            <div id="parse-warnings" style="display:none;font-size:12px;color:#8B6020;background:#FFF8EC;border-radius:6px;padding:8px 12px;margin-bottom:8px;"></div>
+            <div id="parsed-risk-preview"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>Member Counts</span>
+          <span id="mem-source-label" style="font-size:11px;color:var(--green);font-weight:500;display:none;">✓ Auto-filled from Notion</span>
+        </div>
+        <div class="grid-3">
+          <div class="field"><label>Active (current program)</label><input type="number" id="mem-active" placeholder="0"></div>
+          <div class="field"><label>Continuation / Renewal</label><input type="number" id="mem-cont" placeholder="0"></div>
+          <div class="field"><label>Legacy (old program)</label><input type="number" id="mem-legacy" placeholder="0"></div>
+          <div class="field"><label>Trial / Provisional</label><input type="number" id="mem-trial" placeholder="0"></div>
+          <div class="field"><label>Total Active</label><input type="number" id="mem-total" placeholder="0"></div>
+        </div>
+      </div>
+      <div class="section-nav">
+        <button class="btn-nav" onclick="goTo(0)">← Back</button>
+        <button class="btn-nav-next" onclick="goTo(2)">Off-Boarding →</button>
+      </div>
+    </div>
+
+    <!-- S2 Off-Boarding -->
+    <div class="section" id="sec2">
+      <div class="section-header"><span class="section-num">03</span><span class="section-title">Off-Boarding Risk Flags</span></div>
+      <div class="card">
+        <div class="card-label" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>At-Risk Members</span>
+          <span id="risk-source-label" style="font-size:11px;color:var(--green);font-weight:500;display:none;">✓ Auto-filled from Notion</span>
+        </div>
+        <div id="risk-rows"></div>
+        <button class="add-row-btn" onclick="addRiskRow()">+ Add At-Risk Member</button>
+      </div>
+      <div class="paste-zone">
+        <label>✦ Additional notes</label>
+        <textarea id="paste-risk" placeholder="Paste extra off-boarding context here..."></textarea>
+      </div>
+      <div class="section-nav">
+        <button class="btn-nav" onclick="goTo(1)">← Back</button>
+        <button class="btn-nav-next" onclick="goTo(3)">Meta Ads →</button>
+      </div>
+    </div>
+
+    <!-- S3 Meta -->
+    <div class="section" id="sec3">
+      <div class="section-header"><span class="section-num">04</span><span class="section-title">Meta Ads Performance</span></div>
+      <div class="card">
+        <div class="card-label">Performance Metrics</div>
+        <div class="grid-2">
+          <div>
+            <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Today</div>
+            <div class="grid-2">
+              <div class="field"><label>Spend</label><input type="text" id="meta-spend-today" placeholder="$0.00"></div>
+              <div class="field"><label>Impressions</label><input type="number" id="meta-imp-today" placeholder="0"></div>
+              <div class="field"><label>Link Clicks</label><input type="number" id="meta-clicks-today" placeholder="0"></div>
+              <div class="field"><label>CTR</label><input type="text" id="meta-ctr-today" placeholder="0.0%"></div>
+              <div class="field"><label>CPL</label><input type="text" id="meta-cpl-today" placeholder="$0.00"></div>
+              <div class="field"><label>Leads</label><input type="number" id="meta-leads-today" placeholder="0"></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Last 7 Days</div>
+            <div class="grid-2">
+              <div class="field"><label>Spend</label><input type="text" id="meta-spend-7d" placeholder="$0.00"></div>
+              <div class="field"><label>Impressions</label><input type="number" id="meta-imp-7d" placeholder="0"></div>
+              <div class="field"><label>Link Clicks</label><input type="number" id="meta-clicks-7d" placeholder="0"></div>
+              <div class="field"><label>CTR</label><input type="text" id="meta-ctr-7d" placeholder="0.0%"></div>
+              <div class="field"><label>CPL</label><input type="text" id="meta-cpl-7d" placeholder="$0.00"></div>
+              <div class="field"><label>Leads</label><input type="number" id="meta-leads-7d" placeholder="0"></div>
+              <div class="field"><label>ROAS</label><input type="text" id="meta-roas-7d" placeholder="0.0x"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Top Performing Creative</div>
+        <div class="grid-3">
+          <div class="field"><label>Ad Name / ID</label><input type="text" id="meta-ad-name"></div>
+          <div class="field"><label>Format</label><input type="text" id="meta-ad-format" placeholder="Video / Image / Carousel"></div>
+          <div class="field"><label>CTR</label><input type="text" id="meta-ad-ctr" placeholder="0.0%"></div>
+          <div class="field"><label>CPL</label><input type="text" id="meta-ad-cpl" placeholder="$0.00"></div>
+          <div class="field" style="grid-column:span 2;"><label>Notes</label><input type="text" id="meta-ad-notes"></div>
+        </div>
+      </div>
+      <div class="section-nav">
+        <button class="btn-nav" onclick="goTo(2)">← Back</button>
+        <button class="btn-nav-next" onclick="goTo(4)">Workshop →</button>
+      </div>
+    </div>
+
+    <!-- S4 Workshop -->
+    <div class="section" id="sec4">
+      <div class="section-header"><span class="section-num">05</span><span class="section-title">Workshop Sign-Ups</span></div>
+      <div class="card">
+        <div class="card-label">Workshop Details</div>
+        <div class="grid-3">
+          <div class="field" style="grid-column:span 2;"><label>Workshop Name</label><input type="text" id="ws-name"></div>
+          <div class="field"><label>Platform</label><input type="text" id="ws-platform" placeholder="Zoom / In-person"></div>
+          <div class="field"><label>Date & Time</label><input type="text" id="ws-date" placeholder="MM/DD/YYYY HH:MM"></div>
+          <div class="field"><label>Capacity</label><input type="number" id="ws-capacity" placeholder="0"></div>
+          <div class="field"><label>Total Registered</label><input type="number" id="ws-registered" placeholder="0"></div>
+          <div class="field"><label>New Today</label><input type="number" id="ws-new-today" placeholder="0"></div>
+          <div class="field"><label>Waitlist</label><input type="number" id="ws-waitlist" placeholder="0"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Registration Source Breakdown</div>
+        <div id="ws-source-rows"></div>
+        <button class="add-row-btn" onclick="addWsSourceRow()">+ Add Source</button>
+      </div>
+      <div class="section-nav">
+        <button class="btn-nav" onclick="goTo(3)">← Back</button>
+        <button class="btn-nav-next" onclick="goTo(5)">Email →</button>
+      </div>
+    </div>
+
+    <!-- S5 Email -->
+    <div class="section" id="sec5">
+      <div class="section-header"><span class="section-num">06</span><span class="section-title">ActiveCampaign Email Performance</span></div>
+      <div class="card">
+        <div class="card-label">Recent Campaigns</div>
+        <div id="email-campaign-rows"></div>
+        <button class="add-row-btn" onclick="addEmailRow()">+ Add Campaign</button>
+      </div>
+      <div class="card">
+        <div class="card-label">Automation Notes</div>
+        <div class="grid-3">
+          <div class="field"><label>Active Sequences</label><input type="number" id="ac-sequences" placeholder="0"></div>
+          <div class="field"><label>Total Unsubs MTD</label><input type="number" id="ac-unsubs-mtd" placeholder="0"></div>
+          <div class="field"><label>Unsub Rate MTD</label><input type="text" id="ac-unsub-rate" placeholder="0.0%"></div>
+          <div class="field" style="grid-column:span 3;"><label>Deliverability Flags / Notes</label><textarea id="ac-notes" placeholder="Any flags or notes..."></textarea></div>
+        </div>
+      </div>
+      <div class="section-nav">
+        <button class="btn-nav" onclick="goTo(4)">← Back</button>
+        <button class="btn-nav-next" onclick="goTo(6)">MiniChat →</button>
+      </div>
+    </div>
+
+    <!-- S6 MiniChat -->
+    <div class="section" id="sec6">
+      <div class="section-header"><span class="section-num">07</span><span class="section-title">MiniChat Updates</span></div>
+      <div class="card">
+        <div class="grid-3">
+          <div class="field"><label>New Conversations</label><input type="number" id="mc-convos" placeholder="0"></div>
+          <div class="field"><label>Opt-Ins Added</label><input type="number" id="mc-optins" placeholder="0"></div>
+          <div class="field"><label>Active Flows</label><input type="number" id="mc-flows" placeholder="0"></div>
+          <div class="field"><label>Bot → Human Handoffs</label><input type="number" id="mc-handoffs" placeholder="0"></div>
+          <div class="field"><label>Conversion Actions</label><input type="number" id="mc-conversions" placeholder="0"></div>
+          <div class="field"><label>Top Keyword Trigger</label><input type="text" id="mc-keyword"></div>
+          <div class="field"><label>Drop-Off Point</label><input type="text" id="mc-dropoff"></div>
+          <div class="field" style="grid-column:span 2;"><label>Key Themes / Notes</label><textarea id="mc-notes" placeholder="Summarize notable conversations..."></textarea></div>
+        </div>
+      </div>
+      <div class="section-nav">
+        <button class="btn-nav" onclick="goTo(5)">← Back</button>
+        <button class="btn-nav-next" onclick="goTo(7)">Inbox →</button>
+      </div>
+    </div>
+
+    <!-- S7 Inbox -->
+    <div class="section" id="sec7">
+      <div class="section-header"><span class="section-num">08</span><span class="section-title">High-Priority Inbox Items</span></div>
+      <div class="card">
+        <div class="card-label">@info Inbox</div>
+        <div id="inbox-info-rows"></div>
+        <button class="add-row-btn" onclick="addInboxRow('info')">+ Add Item</button>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-label">@eds Inbox</div>
+        <div id="inbox-eds-rows"></div>
+        <button class="add-row-btn" onclick="addInboxRow('eds')">+ Add Item</button>
+      </div>
+      <div class="section-nav">
+        <button class="btn-nav" onclick="goTo(6)">← Back</button>
+        <button class="btn-nav-next" onclick="goTo(8)">Podcast →</button>
+      </div>
+    </div>
+
+    <!-- S8 Podcast -->
+    <div class="section" id="sec8">
+      <div class="section-header"><span class="section-num">09</span><span class="section-title">Podcast Info & Performance</span></div>
+      <div class="card">
+        <div class="card-label">Podcast Overview</div>
+        <div class="grid-3">
+          <div class="field" style="grid-column:span 2;"><label>Podcast Name</label><input type="text" id="pod-name"></div>
+          <div class="field"><label>Platform</label><input type="text" id="pod-platform" placeholder="Apple, Spotify, etc."></div>
+          <div class="field"><label>Downloads (7-day)</label><input type="number" id="pod-7d" placeholder="0"></div>
+          <div class="field"><label>Downloads (30-day)</label><input type="number" id="pod-30d" placeholder="0"></div>
+          <div class="field"><label>All-Time Downloads</label><input type="number" id="pod-alltime" placeholder="0"></div>
+          <div class="field"><label>Top Listener App</label><input type="text" id="pod-top-app"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Recent Episodes</div>
+        <div id="episode-rows"></div>
+        <button class="add-row-btn" onclick="addEpisodeRow()">+ Add Episode</button>
+      </div>
+      <div class="card">
+        <div class="card-label">Upcoming Episode</div>
+        <div class="grid-3">
+          <div class="field" style="grid-column:span 2;"><label>Topic</label><input type="text" id="pod-up-topic"></div>
+          <div class="field"><label>Guest</label><input type="text" id="pod-up-guest"></div>
+          <div class="field"><label>Record Date</label><input type="text" id="pod-up-record" placeholder="MM/DD/YYYY"></div>
+          <div class="field"><label>Publish Date</label><input type="text" id="pod-up-publish" placeholder="MM/DD/YYYY"></div>
+          <div class="field"><label>Promo Plan</label><input type="text" id="pod-up-promo"></div>
+        </div>
+      </div>
+      <div class="section-nav">
+        <button class="btn-nav" onclick="goTo(7)">← Back</button>
+        <button class="btn-nav-next" onclick="goTo(9)">Coupons →</button>
+      </div>
+    </div>
+
+    <!-- S9 Coupons -->
+    <div class="section" id="sec9">
+      <div class="section-header"><span class="section-num">10</span><span class="section-title">Coupon Codes</span></div>
+      <div class="card">
+        <div class="card-label">Recently Used Codes</div>
+        <div id="coupon-rows"></div>
+        <button class="add-row-btn" onclick="addCouponRow()">+ Add Coupon Code</button>
+      </div>
+      <div class="section-nav">
+        <button class="btn-nav" onclick="goTo(8)">← Back</button>
+        <button class="btn-nav-next" onclick="goTo(10)">Notes →</button>
+      </div>
+    </div>
+
+    <!-- S10 Notes -->
+    <div class="section" id="sec10">
+      <div class="section-header"><span class="section-num">✦</span><span class="section-title">Notes & Priority Actions</span></div>
+      <div class="card">
+        <div class="card-label">Priority Actions</div>
+        <div id="action-rows"></div>
+        <button class="add-row-btn" onclick="addActionRow()">+ Add Action</button>
+      </div>
+      <div class="card">
+        <div class="card-label">General Notes</div>
+        <div class="field"><textarea id="notes-general" style="min-height:120px;" placeholder="Anything else the team should know today..."></textarea></div>
+      </div>
+      <div class="section-nav">
+        <button class="btn-nav" onclick="goTo(9)">← Back</button>
+        <button class="btn-generate" style="width:auto;padding:10px 28px;" onclick="publishBrief()">⬆ Publish & Get Link</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Toast -->
+<div class="publish-toast" id="publish-toast"></div>
+
+<script>
+const today = new Date();
+const dateStr = today.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+const dateKey = today.toISOString().split('T')[0]; // YYYY-MM-DD
+document.getElementById('today-badge').textContent = dateStr;
+
+let currentSection = 0;
+const TOTAL = 11;
+let notionData = null;
+
+function goTo(n){
+  document.getElementById('sec'+currentSection).classList.remove('active');
+  document.getElementById('nav'+currentSection).classList.remove('active');
+  currentSection = n;
+  document.getElementById('sec'+n).classList.add('active');
+  document.getElementById('nav'+n).classList.add('active');
+  document.getElementById('progress-fill').style.width=(((n+1)/TOTAL)*100)+'%';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ── CSV Drag & Drop ──
+function handleDragOver(e){e.preventDefault();document.getElementById('csv-drop-target').classList.add('drag-over');}
+function handleDragLeave(){document.getElementById('csv-drop-target').classList.remove('drag-over');}
+function handleDrop(e){
+  e.preventDefault();document.getElementById('csv-drop-target').classList.remove('drag-over');
+  const f=e.dataTransfer.files[0];
+  if(f&&f.name.endsWith('.csv'))processCSVFile(f);
+  else alert('Please drop a .csv file from Notion.');
+}
+function handleFileSelect(e){const f=e.target.files[0];if(f)processCSVFile(f);}
+
+function parseCSV(text){
+  const rows=[];let row=[],cell='',inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(c==='"'){if(inQ&&text[i+1]==='"'){cell+='"';i++;}else inQ=!inQ;}
+    else if(c===','&&!inQ){row.push(cell.trim());cell='';}
+    else if((c==='\n'||c==='\r')&&!inQ){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell.trim());rows.push(row);row=[];cell='';}
+    else cell+=c;
+  }
+  if(cell||row.length)rows.push([...row,cell.trim()]);
+  return rows.filter(r=>r.some(c=>c));
+}
+
+function processCSVFile(file){
+  const r=new FileReader();
+  r.onload=function(e){
+    try{
+      const rows=parseCSV(e.target.result);
+      if(rows.length<2){alert('CSV appears empty.');return;}
+      const headers=rows[0].map(h=>h.trim());
+      const data=rows.slice(1).map(r=>{const o={};headers.forEach((h,i)=>{o[h]=(r[i]||'').trim();});return o;});
+      applyNotionData(data,headers);
+    }catch(err){alert('Could not parse CSV: '+err.message);}
+  };
+  r.readAsText(file);
+}
+
+function applyNotionData(data,headers){
+  const isNotion=headers.includes('⚠️ ALERT?')||headers.includes('Onboarding Stage')||headers.includes('[OLD] Pipeline Status');
+  if(!isNotion){alert("This doesn't look like a Notion Patients CSV.");return;}
+
+  const pk='[OLD] Pipeline Status',sk='Onboarding Stage',ak='⚠️ ALERT?',nk='NP',nak='Alert Narrative',lck='Last Contact',epk='Program End Date';
+
+  const fullyOnboarded=data.filter(r=>r[sk]==='17. Fully Onboarded Patient').length;
+  const inProgram=data.filter(r=>r[pk]==='In Program').length;
+  const inMembership=data.filter(r=>r[pk]==='In Membership').length;
+  const activeCurrent=fullyOnboarded+inProgram+inMembership;
+  const inCont=data.filter(r=>r[pk]==='In Continuation').length;
+  const approachingCont=data.filter(r=>r[sk]==='20. Approaching Continuation').length;
+  const completedCare=data.filter(r=>r[pk]==='Completed Care').length;
+  const trialStages=['02. Awaiting Intake Completion','03. Awaiting Internal Setup','05 Awaiting Lab Scheduling','06. Awaiting Lab Draw','07. Awaiting HDD Scheduling','08. Awaiting Clinical Review','09. Ready for HDD Visit','11. Awaiting Membership Welcome','13. Awaiting RN Intro + Rx Order','14. Awaiting RD intro + Scheduling','15. Awaiting RN Scheduling'];
+  const trial=data.filter(r=>trialStages.includes(r[sk])).length;
+  const totalActive=activeCurrent+inCont+approachingCont+trial;
+
+  setVal('mem-active',activeCurrent);setVal('mem-cont',inCont+approachingCont);
+  setVal('mem-legacy',completedCare);setVal('mem-trial',trial);setVal('mem-total',totalActive);
+  document.getElementById('mem-source-label').style.display='inline';
+
+  const riskEntries=[];
+  data.filter(r=>r[ak]==='Yes').forEach(r=>{
+    const n=r[nak]||'';
+    riskEntries.push({name:r['Name']||'Unknown',reason:'⚠️ Alert flagged'+(r[sk]?' — '+r[sk]:''),action:n.length>180?n.substring(0,177)+'...':n,type:'alert',np:r[nk]||''});
+  });
+  const excl=['Archived for Future Follow Up','Completed Care'];
+  data.filter(r=>{
+    if(excl.includes(r[pk]))return false;
+    const m=(r[lck]||'').match(/(\d+)/);return m&&parseInt(m[1])>30;
+  }).forEach(r=>{
+    if(riskEntries.find(e=>e.name===r['Name']))return;
+    const m=(r[lck]||'').match(/(\d+)/);const days=m?m[1]:'?';
+    riskEntries.push({name:r['Name']||'Unknown',reason:`No contact in ${days} days`,action:'Schedule check-in or outreach',type:'gap',np:r[nk]||''});
+  });
+  data.filter(r=>r[sk]==='20. Approaching Continuation').forEach(r=>{
+    if(riskEntries.find(e=>e.name===r['Name']))return;
+    const ed=r[epk]||'';
+    riskEntries.push({name:r['Name']||'Unknown',reason:'Approaching continuation'+(ed?' — ends '+ed:''),action:'Confirm renewal intent',type:'cont',np:r[nk]||''});
+  });
+  data.filter(r=>r[pk]==='HC ON HOLD'||r[pk]==='HDD ON HOLD').forEach(r=>{
+    if(riskEntries.find(e=>e.name===r['Name']))return;
+    riskEntries.push({name:r['Name']||'Unknown',reason:r[pk],action:'Check re-engagement status',type:'hold',np:r[nk]||''});
+  });
+
+  document.getElementById('risk-rows').innerHTML='';
+  riskEntries.forEach(e=>addRiskRow(e.name,e.reason,e.action));
+  document.getElementById('risk-source-label').style.display='inline';
+
+  document.getElementById('notion-upload-zone').classList.add('loaded');
+  const res=document.getElementById('parse-result');res.classList.add('visible');
+
+  document.getElementById('parse-chips').innerHTML=[
+    {l:`${data.length} patients`,c:''},
+    {l:`${activeCurrent} active`,c:''},
+    {l:`${inCont+approachingCont} continuation`,c:''},
+    {l:`${trial} in onboarding`,c:''},
+    {l:`${data.filter(r=>r[ak]==='Yes').length} alerts`,c:'risk'},
+    {l:`${riskEntries.length} risk flags`,c:'risk'},
+    {l:`${approachingCont} approaching renewal`,c:'warn'}
+  ].map(x=>`<span class="parse-chip ${x.c}">${x.l}</span>`).join('');
+
+  const top=riskEntries.slice(0,8);
+  document.getElementById('parsed-risk-preview').innerHTML=riskEntries.length?`
+    <div class="parsed-preview-label">Risk flags pulled into Section 03</div>
+    <table class="parsed-table"><thead><tr><th>Patient</th><th>Flag</th><th>NP</th></tr></thead><tbody>
+    ${top.map(e=>`<tr class="${e.type==='alert'?'risk-row':e.type==='cont'?'warn-row':''}"><td>${e.name}</td><td>${e.reason}</td><td>${e.np||'—'}</td></tr>`).join('')}
+    ${riskEntries.length>8?`<tr><td colspan="3" style="color:var(--muted);font-style:italic;font-size:11px;">+ ${riskEntries.length-8} more rows added to Section 03</td></tr>`:''}
+    </tbody></table>
+    <div class="parse-override-note">All rows are editable in Section 03.</div>`:'';
+
+  notionData={counts:{activeCurrent,inCont,approachingCont,trial,totalActive,completedCare},riskEntries};
+  goTo(1);
+}
+
+function clearNotionData(){
+  notionData=null;
+  document.getElementById('notion-upload-zone').classList.remove('loaded');
+  document.getElementById('parse-result').classList.remove('visible');
+  document.getElementById('mem-source-label').style.display='none';
+  document.getElementById('risk-source-label').style.display='none';
+  document.getElementById('notion-csv-input').value='';
+  ['mem-active','mem-cont','mem-legacy','mem-trial','mem-total'].forEach(id=>setVal(id,''));
+  document.getElementById('risk-rows').innerHTML='';addRiskRow();
+}
+
+// ── Row builders ──
+function setVal(id,v){const e=document.getElementById(id);if(e)e.value=v;}
+
+function buildInputRow(fields){
+  const d=document.createElement('div');
+  d.style.cssText='display:grid;gap:8px;align-items:end;margin-bottom:8px;grid-template-columns:'+fields.map(f=>f.w||'1fr').join(' ')+';';
+  fields.forEach(f=>{
+    const w=document.createElement('div');
+    if(f.label){const l=document.createElement('label');l.style.cssText='display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:5px;';l.textContent=f.label;w.appendChild(l);}
+    const i=document.createElement('input');i.type=f.type||'text';i.placeholder=f.ph||'';i.value=f.val||'';
+    i.style.cssText='width:100%;background:var(--oat);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:DM Sans,sans-serif;font-size:13px;color:var(--text);outline:none;';
+    i.dataset.key=f.key;w.appendChild(i);d.appendChild(w);
+  });
+  const b=document.createElement('button');b.innerHTML='✕';b.style.cssText='background:none;border:none;cursor:pointer;color:#C4A0A0;font-size:15px;padding:0 4px;align-self:center;margin-bottom:4px;';b.onclick=()=>d.remove();d.appendChild(b);
+  return d;
+}
+
+function addLeadRow(s,l,c,r){document.getElementById('lead-source-rows').appendChild(buildInputRow([{label:'Source',key:'source',ph:'Meta Ads',val:s||''},{label:'Leads',key:'leads',type:'number',ph:'0',w:'80px',val:l||''},{label:'Converted',key:'converted',type:'number',ph:'0',w:'90px',val:c||''},{label:'Conv. Rate',key:'conv_rate',ph:'0%',w:'80px',val:r||''}]));}
+function addRiskRow(n,r,a){document.getElementById('risk-rows').appendChild(buildInputRow([{label:'Member Name',key:'name',ph:'Full Name',val:n||''},{label:'Reason / Flag',key:'reason',ph:'e.g. No activity 3 weeks',val:r||''},{label:'Recommended Action',key:'action',ph:'e.g. Schedule call',val:a||''}]));}
+function addWsSourceRow(){document.getElementById('ws-source-rows').appendChild(buildInputRow([{label:'Source',key:'source',ph:'e.g. Email Campaign'},{label:'Count',key:'count',type:'number',ph:'0',w:'80px'},{label:'% of Total',key:'pct',ph:'0%',w:'80px'}]));}
+function addEmailRow(){document.getElementById('email-campaign-rows').appendChild(buildInputRow([{label:'Campaign Name',key:'name',ph:''},{label:'Sent',key:'sent',type:'number',ph:'0',w:'80px'},{label:'Open Rate',key:'open_rate',ph:'0%',w:'80px'},{label:'Click Rate',key:'click_rate',ph:'0%',w:'80px'},{label:'Unsubs',key:'unsubs',type:'number',ph:'0',w:'70px'}]));}
+function addEpisodeRow(){document.getElementById('episode-rows').appendChild(buildInputRow([{label:'Episode Title',key:'title',ph:''},{label:'Publish Date',key:'date',ph:'MM/DD'},{label:'Downloads',key:'downloads',type:'number',ph:'0',w:'90px'},{label:'Listen Link',key:'link',ph:'https://...'}]));}
+function addCouponRow(){document.getElementById('coupon-rows').appendChild(buildInputRow([{label:'Code',key:'code',ph:'e.g. WELCOME20'},{label:'Discount',key:'discount',ph:'e.g. 20%'},{label:'Times Used',key:'used',type:'number',ph:'0',w:'90px'},{label:'Expiry',key:'expiry',ph:'MM/DD/YYYY'},{label:'Notes',key:'notes',ph:'Campaign / context'}]));}
+function addInboxRow(b){document.getElementById('inbox-'+b+'-rows').appendChild(buildInputRow([{label:'From',key:'from',ph:'Name / email'},{label:'Subject',key:'subject',ph:''},{label:'Summary',key:'summary',ph:'Brief summary'},{label:'Action + Owner',key:'action',ph:'e.g. Reply — Emily'}]));}
+function addActionRow(){document.getElementById('action-rows').appendChild(buildInputRow([{label:'Action Item',key:'action',ph:'e.g. Follow up with Dr. Jones'},{label:'Owner',key:'owner',ph:'Name',w:'100px'},{label:'Due',key:'due',ph:'MM/DD',w:'90px'}]));}
+
+function clearAll(){
+  document.querySelectorAll('input,textarea').forEach(e=>e.value='');
+  ['lead-source-rows','risk-rows','ws-source-rows','email-campaign-rows','episode-rows','coupon-rows','inbox-info-rows','inbox-eds-rows','action-rows'].forEach(id=>{document.getElementById(id).innerHTML='';});
+  clearNotionData();
+}
+
+// ── Collect data ──
+function v(id){return(document.getElementById(id)||{}).value||'—';}
+function getRows(cid){
+  const rows=[];
+  document.getElementById(cid).querySelectorAll('div[style*="grid"]').forEach(row=>{
+    const o={};row.querySelectorAll('input').forEach(i=>{if(i.dataset.key)o[i.dataset.key]=i.value||'—';});
+    if(Object.values(o).some(x=>x&&x!=='—'))rows.push(o);
+  });
+  return rows;
+}
+
+function collectBriefData(){
+  return {
+    date: dateKey,
+    dateDisplay: dateStr,
+    preparedBy: v('prepared-by'),
+    enrollToday: v('enroll-today'), enrollMtd: v('enroll-mtd'), enrollYtd: v('enroll-ytd'), enrollGoal: v('enroll-goal'),
+    leadRows: getRows('lead-source-rows'),
+    pasteEnrollment: v('paste-enrollment'),
+    memActive: v('mem-active'), memCont: v('mem-cont'), memLegacy: v('mem-legacy'), memTrial: v('mem-trial'), memTotal: v('mem-total'),
+    notionPowered: !!notionData,
+    notionCounts: notionData ? notionData.counts : null,
+    riskRows: getRows('risk-rows'),
+    pasteRisk: v('paste-risk'),
+    metaSpendToday: v('meta-spend-today'), metaImpToday: v('meta-imp-today'), metaClicksToday: v('meta-clicks-today'),
+    metaCtrToday: v('meta-ctr-today'), metaCplToday: v('meta-cpl-today'), metaLeadsToday: v('meta-leads-today'),
+    metaSpend7d: v('meta-spend-7d'), metaImp7d: v('meta-imp-7d'), metaClicks7d: v('meta-clicks-7d'),
+    metaCtr7d: v('meta-ctr-7d'), metaCpl7d: v('meta-cpl-7d'), metaLeads7d: v('meta-leads-7d'), metaRoas7d: v('meta-roas-7d'),
+    metaAdName: v('meta-ad-name'), metaAdFormat: v('meta-ad-format'), metaAdCtr: v('meta-ad-ctr'), metaAdCpl: v('meta-ad-cpl'), metaAdNotes: v('meta-ad-notes'),
+    wsName: v('ws-name'), wsPlatform: v('ws-platform'), wsDate: v('ws-date'), wsCapacity: v('ws-capacity'),
+    wsRegistered: v('ws-registered'), wsNewToday: v('ws-new-today'), wsWaitlist: v('ws-waitlist'),
+    wsSourceRows: getRows('ws-source-rows'),
+    emailRows: getRows('email-campaign-rows'),
+    acSequences: v('ac-sequences'), acUnsubsMtd: v('ac-unsubs-mtd'), acUnsubRate: v('ac-unsub-rate'), acNotes: v('ac-notes'),
+    mcConvos: v('mc-convos'), mcOptins: v('mc-optins'), mcFlows: v('mc-flows'), mcHandoffs: v('mc-handoffs'),
+    mcConversions: v('mc-conversions'), mcKeyword: v('mc-keyword'), mcDropoff: v('mc-dropoff'), mcNotes: v('mc-notes'),
+    infoRows: getRows('inbox-info-rows'), edsRows: getRows('inbox-eds-rows'),
+    podName: v('pod-name'), podPlatform: v('pod-platform'), pod7d: v('pod-7d'), pod30d: v('pod-30d'), podAlltime: v('pod-alltime'), podTopApp: v('pod-top-app'),
+    episodeRows: getRows('episode-rows'),
+    podUpTopic: v('pod-up-topic'), podUpGuest: v('pod-up-guest'), podUpRecord: v('pod-up-record'), podUpPublish: v('pod-up-publish'), podUpPromo: v('pod-up-promo'),
+    couponRows: getRows('coupon-rows'),
+    actionRows: getRows('action-rows'),
+    notesGeneral: v('notes-general'),
+  };
+}
+
+// ── Preview (open in new tab) ──
+function previewBrief(){
+  showToast('Opening preview...', false, 2000);
+  const data = collectBriefData();
+  const params = new URLSearchParams({ preview: '1' });
+  window.open('/api/view?id=' + encodeURIComponent(data.date) + '&' + params, '_blank');
+}
+
+// ── Publish ──
+async function publishBrief(){
+  const btn = document.getElementById('btn-publish');
+  btn.textContent = '⏳ Publishing...';
+  btn.disabled = true;
+
+  const data = collectBriefData();
+
+  try {
+    const res = await fetch('/api/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Save failed');
+
+    const url = window.location.origin + json.url;
+    await navigator.clipboard.writeText(url).catch(()=>{});
+    showToast(`✓ Published! <a href="${json.url}" target="_blank">View brief →</a>  &nbsp; (link copied)`, false, 8000);
+    btn.textContent = '✓ Published';
+    setTimeout(()=>{ btn.textContent = '⬆ Publish & Get Link'; btn.disabled = false; }, 4000);
+  } catch(err) {
+    showToast('Error: ' + err.message, true, 5000);
+    btn.textContent = '⬆ Publish & Get Link';
+    btn.disabled = false;
+  }
+}
+
+function showToast(msg, isError, duration){
+  const t = document.getElementById('publish-toast');
+  t.innerHTML = msg;
+  t.className = 'publish-toast' + (isError ? ' error' : '') + ' show';
+  setTimeout(()=>{ t.classList.remove('show'); }, duration || 4000);
+}
+
+// ── Seed rows ──
+addLeadRow('Meta Ads'); addLeadRow('Organic / Referral'); addLeadRow('Email Campaign'); addLeadRow('Workshop / Event');
+addRiskRow(); addWsSourceRow(); addWsSourceRow();
+addEmailRow(); addEmailRow(); addEpisodeRow(); addEpisodeRow();
+addCouponRow(); addInboxRow('info'); addInboxRow('eds');
+addActionRow(); addActionRow();
+</script>
+</body>
+</html>

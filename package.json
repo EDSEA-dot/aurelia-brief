@@ -1,0 +1,11 @@
+{
+  "name": "aurelia-brief",
+  "version": "1.0.0",
+  "description": "Aurelia Health Daily Brief Generator",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.28.0"
+  }
+}

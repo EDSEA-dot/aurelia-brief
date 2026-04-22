@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/brief/:id", "destination": "/api/view?id=:id" },
+    { "source": "/api/save", "destination": "/api/save" },
+    { "source": "/api/view", "destination": "/api/view" }
+  ]
+}
